@@ -44,6 +44,13 @@ dev = [
     "pytest>=8.0",
     "pytest-timeout>=2.3",
     "ruff>=0.6",
+    # Both are gates, not conveniences: CI runs `mypy` and `pytest --cov` and fails without them,
+    # and `tools/acceptance.py` wave 1 shells out to mypy. They were missing here even though the
+    # gates existed, so every local run passed on tools that had been installed by hand and all
+    # twelve CI jobs failed on the coverage step. Declared so that a clean checkout can run the
+    # gates it is expected to run.
+    "pytest-cov>=5.0",
+    "mypy>=1.10",
 ]
 
 [project.scripts]
