@@ -1,0 +1,113 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "amnesia"
+version = "0.2.0"
+description = "A governance layer for agent memory: write admission, read authorization, poisoning detection, forgetting, and a full audit trail"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "amnesia contributors" }]
+keywords = [
+    "agent",
+    "memory",
+    "governance",
+    "acl",
+    "mcp",
+    "compliance",
+    "gdpr",
+    "prompt-injection",
+    "bm25",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = [
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+server = ["mcp>=1.2.0"]
+dev = [
+    "pytest>=8.0",
+    "pytest-timeout>=2.3",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+amnesia = "amnesia.cli:main"
+amnesia-server = "amnesia.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+# The policy ships *inside* the package. Beside it, it would be absent from a real
+# (non-editable) install, and the engine would silently fall back to its built-in
+# defaults -- a different permission model with nothing to say so.
+amnesia = ["py.typed", "policies/*.yaml"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q --timeout=60"
+
+# Verified clean against this codebase before being written down: `ruff check .` reports
+# zero findings. A rule set that has never been run is worse than none -- CI goes red on
+# the first push and the config gets deleted rather than fixed.
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+# `.demo` holds demo output and scratch stores created by running the CLI by hand. Linting
+# those made the gate fail on artefacts rather than on code.
+extend-exclude = [".demo", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF"]
+ignore = [
+    # The codebase documents design rationale in long docstrings and comments; forcing
+    # them into a narrower column would cost more than it buys.
+    "E501",
+]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src/amnesia"]
+# `mcp` ships no stubs, and `fcntl` has no attributes under Windows stubs. Both are annotated at
+# the use site; this keeps the gate about our own code.
+ignore_missing_imports = true
+# `warn_unused_ignores` is deliberately off. The shim in `server.py` needs
+# `# type: ignore[attr-defined]` under mcp 1.x and not under 2.x, so the check would make the
+# gate report a different result depending on which SDK the resolver happened to install. A gate
+# that drifts with a dependency version is worse than the tidiness it buys.
+warn_redundant_casts = true
+no_implicit_optional = true
+strict_equality = true
+
+[tool.coverage.run]
+source = ["amnesia"]
+branch = false
+
+[tool.coverage.report]
+# Not zero: some branches are unrepresentable in a test (a retry loop that cannot exit, the
+# MCP 1.x import fallback) and chasing them would mean writing tests for the tests. The floor is
+# here so a real drop fails the gate rather than being noticed by nobody.
+fail_under = 90
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise AssertionError\\(\"unreachable\"\\)",
+]

@@ -1,0 +1,16 @@
+# Normalise line endings so a Windows contributor does not produce a diff that touches every
+# line of every file. The working tree and the repository both use LF; Git converts on checkout
+# only where a platform genuinely requires it.
+* text=auto eol=lf
+
+# Binary and generated files must never be line-ending converted.
+*.png binary
+*.jpg binary
+*.ico binary
+*.db binary
+*.sqlite3 binary
+*.whl binary
+
+# Exclude generated files from `git diff` output and from GitHub's language statistics.
+*.jsonl linguist-generated=true
+*.db linguist-generated=true

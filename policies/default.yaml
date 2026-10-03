@@ -1,0 +1,101 @@
+# Amnesia policy file
+#
+# This file exists in two locations: at the repo root, which is the copy you edit and
+# point `--policy` at, and inside the package (src/amnesia/policies/default.yaml), which
+# is the copy that ships so a real install has one. tests/test_policy_reload.py asserts the
+# two are byte-identical, because when they drifted once already, the same permission
+# question got two different answers. Edit both, or neither.
+#
+# This file is the single source of truth for "who can see what".
+# Changing permissions does not mean changing code -- reviewing permissions means
+# reviewing the diff of this file.
+#
+# Every edit is fingerprinted and audited on the next request, so bump `revision`
+# whenever you change something. That label is what a reviewer quotes in a change
+# ticket; the fingerprint only proves the bytes changed.
+
+version: 1
+revision: "2026-09-29.1"
+
+# Role -> clearance level. Higher clearance reaches more sensitive scopes.
+# When a principal holds several roles, the highest level wins.
+roles:
+  contractor:
+    clearance: 1
+  employee:
+    clearance: 1
+  manager:
+    clearance: 2      # can read confidential (contracts, budgets)
+  hr:
+    clearance: 3      # can read hr_only (reviews, compensation)
+  admin:
+    clearance: 4
+
+# Sensitivity scopes. Every memory must land in exactly one of these on write.
+scopes:
+  personal:
+    min_clearance: 1
+    deletable: true     # personal data: a deletion request can remove it outright
+  project:
+    min_clearance: 1
+    deletable: true
+  confidential:
+    min_clearance: 2
+    deletable: false    # business records: deletion requires admin
+  hr_only:
+    min_clearance: 3
+    deletable: false
+    # Roles that do not count toward clearance for this scope. A principal holding *only*
+    # these roles is refused; one who also holds another role is judged on that role. It is
+    # a per-role exclusion, not a veto on the principal -- treating it as a veto made a
+    # second role reduce access, so an employee who was also HR could not read HR records.
+    deny_roles: [contractor, employee]
+
+# Write gate
+write:
+  require_source: true
+  detect_pii: true
+  reject_on: [secret]                            # hard reject; credentials are never stored
+  redact_on: [email, phone, national_id, ipv4]
+  default_scope: project
+  min_confidence: 0.0
+  max_confidence: 1.0
+  ttl_days:
+    default: 180
+    personal: 90                                 # shorter retention for personal data
+    confidential: 365
+
+# Read gate
+read:
+  require_same_tenant: true
+  min_confidence: 0.3                            # a memory this uncertain should not shape an answer
+  deny_if_superseded: true
+  deny_expired: true
+  min_score: 0.0                                 # BM25 floor; raise once you have query logs
+
+# Poisoning detection. Judgement about your environment, hence configuration.
+poison:
+  enabled: true
+  on_high: reject          # injected instructions and fact flipping are blocked outright
+  on_medium: flag          # bursts and untrusted provenance are stored but tagged for review
+  on_low: flag
+  burst_threshold: 5       # more than this many writes to one subject inside the window
+  burst_window_seconds: 600
+  extra_injection_patterns: []
+
+  # Sources allowed to establish facts. Anything not listed here cannot:
+  #   - supersede a fact established by a listed source (see `fact_flip`)
+  #   - write into a scope listed in trusted_required_scopes
+  # Start with the systems you actually control, and leave ingestion pipelines out
+  # until you trust them.
+  trusted_sources:
+    - hr-system
+    - contract-db
+    - crm-sync
+    - hr-notice
+    - wiki
+
+  # Scopes where provenance is checked. Everything else accepts any source.
+  trusted_required_scopes:
+    - confidential
+    - hr_only

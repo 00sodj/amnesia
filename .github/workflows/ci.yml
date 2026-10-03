@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,server]"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: python -m pytest -q
+
+      # Coverage has a floor in pyproject.toml, so a real drop fails the build instead of
+      # being noticed by nobody.
+      - name: Tests with coverage
+        run: python -m pytest -q --cov=amnesia --cov-report=term-missing
+
+      # A gate, not a suggestion. It found two real defects when it was first switched on.
+      - name: Type check
+        run: python -m mypy
+
+      # The demo and the CLI are part of the product surface, not decoration.
+      # If either stops running, the release is not shippable.
+      - name: Run the demo
+        run: python demo/demo_run.py
+
+      - name: Governance self-check
+        run: |
+          amnesia --db ci.db --audit ci-audit.jsonl --policy policies/default.yaml verify
+          amnesia --db ci.db --audit ci-audit.jsonl --policy policies/default.yaml report --out ci-report.md
+        shell: bash
+
+      # Proves the server starts, speaks MCP over stdio and registers its tools --
+      # which the unit tests, calling the functions directly, cannot.
+      - name: MCP transport smoke test
+        run: python tools/mcp_smoke.py
+
+      # The unit tests cover threads inside one process. This covers separate processes,
+      # which is how the CLI is actually used -- it is what found 23 of 50 writes being lost.
+      - name: Concurrent access check
+        run: python tools/concurrency_check.py --writers 8 --readers 4 --rounds 4

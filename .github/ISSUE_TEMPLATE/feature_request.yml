@@ -1,0 +1,30 @@
+name: Feature request
+description: Propose a change. Please read Known limits first — some gaps are deliberate.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        [Known limits](../../README.md#known-limits) lists what this deliberately does not do yet,
+        and [SECURITY.md](../../SECURITY.md) lists the non-goals. Something being absent from both
+        is the interesting case.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you unable to do today? Describe the situation, not the API you want.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you have in mind
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried instead
+      description: If a workaround exists, it is worth knowing about.
+    validations:
+      required: false
