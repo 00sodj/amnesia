@@ -11,7 +11,7 @@ should never be stored, who may see it, and whether the deletion actually happen
 > Most memory stores answer *"how do we remember more?"*
 > Amnesia answers *"what should never be stored, who may see it, and when should it be forgotten?"*
 
-**Status:** `0.2.0`, beta. 238 tests at 93% coverage, ruff- and mypy-clean. Python 3.10+,
+**Status:** `0.2.0`, beta. 252 tests at 93% coverage, ruff- and mypy-clean. Python 3.10+,
 PyYAML the only runtime dependency.
 
 > **Not on PyPI.** `pip install amnesia` installs an unrelated package that owns the name. Install
@@ -606,7 +606,8 @@ amnesia/
 │   ├── store.py          reference backend: SQLite + BM25 + migrations
 │   ├── backend.py        MemoryBackend / WriteAttemptLedger protocols
 │   ├── expiry.py         supersession, decay, physical deletion
-│   ├── audit.py          append-only JSONL evidence stream
+│   ├── audit.py          append-only JSONL evidence stream, exclusive-locked appends
+│   ├── chain.py          the hash chain: seq / prev / hash, and verification
 │   ├── report.py         compliance report, markdown and JSON
 │   ├── diagnostics.py    deployment self-check, shared by CLI and MCP
 │   ├── validation.py     input limits, enforced before any side effect
@@ -622,11 +623,14 @@ amnesia/
 │   ├── acceptance.py       ten waves of checks in one command
 │   ├── concurrency_check.py multi-process write/read gate
 │   └── mcp_smoke.py        stdio transport gate
-├── tests/                governance · retrieval · poison · policy reload ·
-│                         backend · durability · report & CLI · diagnostics & MCP
-├── .github/workflows/    CI: 3 OSes × 4 Python versions, tests + demo + smoke + verify
+├── tests/                governance · retrieval · poison · policy reload · backend ·
+│                         durability · report & CLI · diagnostics & MCP · audit chain
+├── .github/workflows/    CI: 3 OSes × 4 Python versions, tests + coverage + mypy + demo
+│                         + smoke + verify + concurrency
+├── QUICKSTART.md         five minutes, six commands
 ├── CHANGELOG.md
 ├── CONTRIBUTING.md
+├── CODE_OF_CONDUCT.md
 ├── SECURITY.md
 └── LICENSE
 ```

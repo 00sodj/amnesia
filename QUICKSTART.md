@@ -168,7 +168,7 @@ Every number reconciles with the audit stream, and an
 python tools/acceptance.py
 ```
 
-Ten waves, 113 checks, about two minutes. Exit code `0` only if everything passes.
+Ten waves, 114 checks, about two minutes. Exit code `0` only if everything passes.
 
 ---
 

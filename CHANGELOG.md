@@ -366,7 +366,7 @@ The release that turns the working proof into something deployable.
 
 ### Tests
 
-238 tests, covering governance, retrieval ranking and paging, poisoning, write idempotency,
+252 tests, covering governance, retrieval ranking and paging, poisoning, write idempotency,
 policy reload and resolution, the backend seam, validation, durability (including the journal
 mode default and the fallback), migration, concurrency, the report, the CLI and the MCP
 surface. `tools/mcp_smoke.py` exercises the stdio transport end to end and
