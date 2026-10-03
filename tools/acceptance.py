@@ -64,6 +64,31 @@ OK, FAIL = "ok", "FAIL"
 DEEP = False
 
 
+def _run_module(module: str, *args: str) -> subprocess.CompletedProcess[str] | None:
+    """Run `python -m <module>` in the repository, or return None if it is not installed.
+
+    Telling "the tool is missing" apart from "the tool found a problem" is the difference between
+    a user running one pip command and a user hunting for a bug that is not there. Installing only
+    the `server` extra and then running this script is a reasonable thing to do -- it is what the
+    quickstart used to instruct -- and it produced `[FAIL] ruff is clean` with no explanation.
+    """
+    result = subprocess.run(
+        [sys.executable, "-m", module, *args], cwd=REPO, capture_output=True, text=True
+    )
+    if result.returncode and f"No module named {module}" in (result.stdout + result.stderr):
+        return None
+    return result
+
+
+def _tool_failure(
+    result: subprocess.CompletedProcess[str] | None, module: str, detail: str
+) -> str:
+    """The reason a tool check failed, naming the fix when the cause is a missing tool."""
+    if result is None:
+        return f"{module} is not installed -- pip install -e '.[dev]'"
+    return detail
+
+
 class Wave:
     """Collects named checks and reports the first few failures with detail."""
 
@@ -129,10 +154,12 @@ def wave_1_static(wave: Wave, tmp: Path) -> None:
         ok = hasattr(importlib.import_module(module), attribute)
         wave.check(f"entry point {script}", ok, target)
 
-    lint = subprocess.run(
-        [sys.executable, "-m", "ruff", "check", "."], cwd=REPO, capture_output=True, text=True
+    lint = _run_module("ruff", "check", ".")
+    wave.check(
+        "ruff is clean",
+        lint is not None and lint.returncode == 0,
+        _tool_failure(lint, "ruff", lint.stdout.strip()[:120] if lint else ""),
     )
-    wave.check("ruff is clean", lint.returncode == 0, lint.stdout.strip()[:120])
 
     # Type checking is a gate, not a suggestion: `mypy` found two real defects when it was first
     # switched on (a `raise` that could receive `None`, and a predicate annotated narrower than
@@ -145,19 +172,20 @@ def wave_1_static(wave: Wave, tmp: Path) -> None:
     # every one on Linux and macOS failed, with `--platform linux` reproducing it exactly.
     platform_results = {}
     for platform in ("win32", "linux", "darwin"):
-        result = subprocess.run(
-            [sys.executable, "-m", "mypy", "--platform", platform],
-            cwd=REPO,
-            capture_output=True,
-            text=True,
-        )
-        platform_results[platform] = result
-    broken = [name for name, r in platform_results.items() if r.returncode]
+        platform_results[platform] = _run_module("mypy", "--platform", platform)
+    missing = [name for name, r in platform_results.items() if r is None]
+    broken = [name for name, r in platform_results.items() if r is not None and r.returncode]
     first = platform_results[broken[0]] if broken else None
     detail = (
         (first.stdout + first.stderr).strip().splitlines()[-1][:120] if first is not None else ""
     )
-    wave.check("mypy is clean on every platform", not broken, ", ".join(broken) or detail)
+    wave.check(
+        "mypy is clean on every platform",
+        not missing and not broken,
+        _tool_failure(first, "mypy", ", ".join(broken) if broken else detail)
+        if missing or broken
+        else "",
+    )
 
     # Every tool a gate shells out to must be declared in the `dev` extra, or a clean checkout
     # cannot run the gate it is expected to run. This is not hypothetical: `mypy` and `pytest-cov`
@@ -226,8 +254,23 @@ def wave_2_isolation(wave: Wave, tmp: Path) -> None:
         # same thing without any deletion at all.
         basetemp = REPO / ".demo" / f"pytest-tmp-{os.getpid()}"
 
-    # Deliberately NOT created here -- see the docstring: pytest removes an existing basetemp
-    # before it starts, and that removal is what a guarded host blocks.
+    # The basetemp itself is deliberately NOT created -- pytest removes an existing one before it
+    # starts, and that removal is what a guarded host blocks. Its **parent** must exist, though,
+    # and that is not obvious: pytest calls `basetemp.mkdir(parents=False)`, so a missing parent
+    # is a hard `FileNotFoundError` rather than a directory it creates on the way. In a working
+    # copy `.demo/` is usually already there from a previous run, which is why this stayed
+    # hidden until the repository was cloned fresh and the suite was run exactly as a newcomer
+    # would: 43 passed, 209 errors, all of them this one missing directory.
+    try:
+        basetemp.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        wave.check(
+            "the pytest scratch parent can be created",
+            False,
+            f"{type(exc).__name__} creating {basetemp.parent}: {exc}",
+        )
+        return
+
     invocation = [sys.executable, "-m", "pytest", "--no-header", f"--basetemp={basetemp}"]
 
     if DEEP:
@@ -261,12 +304,20 @@ def wave_2_isolation(wave: Wave, tmp: Path) -> None:
             r"%TEMP%\pytest-of-<user> and retry. This is the host, not the tests.",
         )
         return
+    # Report pytest's own last lines rather than a theory about why. This branch used to say
+    # "most likely a host that guards temp-file deletion" whenever the run exited non-zero with
+    # every test passing -- a guess from the *absence* of failures. It fired on a completely
+    # different cause (a missing basetemp parent) and sent the reader after a host problem that
+    # did not exist. Diagnose from evidence, or print the evidence.
     if whole.returncode and reported and not failures:
+        detail = next(
+            (line.strip() for line in reversed(output.strip().splitlines()) if line.strip()), ""
+        )
         wave.check(
             "full suite is runnable here",
             False,
-            f"pytest exited {whole.returncode} while reporting {passed_count} passed and no "
-            "failures -- most likely a host that guards temp-file deletion",
+            f"pytest exited {whole.returncode} after {passed_count} passed with no test "
+            f"failures, which means an error outside the tests. Last line: {detail[:150]}",
         )
     else:
         wave.check("full suite passes", whole.returncode == 0, output.strip()[-100:])

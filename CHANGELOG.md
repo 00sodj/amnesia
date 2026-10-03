@@ -101,6 +101,25 @@ The release that turns the working proof into something deployable.
 
 ### Fixed
 
+- **The acceptance suite could not run in a fresh clone.** `tools/acceptance.py` points pytest's
+  basetemp at `.demo/pytest-tmp` and deliberately does not create it — pytest removes an existing
+  basetemp before starting, and that removal is what a guarded host blocks. But pytest calls
+  `basetemp.mkdir(parents=False)`, so the **parent** must already exist, and in a fresh clone
+  `.demo/` does not: 43 passed, 209 errors, every one of them the same missing directory. It
+  stayed hidden because a working copy usually has `.demo/` left over from a previous run. The
+  parent is created now, and the basetemp still is not.
+  Found by cloning the published repository and following the quickstart exactly as a newcomer
+  would, which is the only way this class of defect shows up.
+- **The suite guessed at its own failures.** When pytest exited non-zero with every test passing,
+  wave 2 reported "most likely a host that guards temp-file deletion" — a conclusion drawn from
+  the *absence* of failures. It fired on a missing directory and sent the reader after a host
+  problem that did not exist. It now prints pytest's own last line instead of a theory.
+- **A missing gate tool failed without saying so.** Installing only the `server` extra and running
+  the suite produced `[FAIL] ruff is clean` with no explanation. It now says
+  `ruff is not installed -- pip install -e '.[dev]'`.
+- **The quickstart installed too little.** It said `pip install -e ".[server]"` and then asked the
+  reader to run `tools/acceptance.py`, which needs the `dev` extra. Following it literally failed
+  two waves.
 - **The cross-platform type check was one-sided, so the gate passed on Windows and failed
   everywhere else.** The cross-process lock in `audit.py` needs a `type: ignore` on each of its
   two branches — `fcntl` on POSIX, `msvcrt` on Windows — because a checker resolves only the

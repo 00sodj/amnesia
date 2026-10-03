@@ -8,8 +8,11 @@ from a real run.
 
 ```bash
 git clone https://github.com/00sodj/amnesia.git && cd amnesia
-pip install -e ".[server]"
+pip install -e ".[dev,server]"
 ```
+
+The `dev` extra is only there for step 6, which runs the checks. Drop it if you just want to use
+the thing: `pip install -e ".[server]"`.
 
 > `pip install amnesia` will not work — that name belongs to an unrelated package on PyPI.
 > [Why](README.md#install).
