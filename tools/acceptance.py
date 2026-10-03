@@ -148,6 +148,31 @@ def wave_1_static(wave: Wave, tmp: Path) -> None:
         else "",
     )
 
+    # Every tool a gate shells out to must be declared in the `dev` extra, or a clean checkout
+    # cannot run the gate it is expected to run. This is not hypothetical: `mypy` and `pytest-cov`
+    # were wired into the gates while still only being present by hand, so every local run passed
+    # and all twelve CI jobs failed on the coverage step. A gate is only as good as the
+    # environment that is supposed to have it.
+    import tomllib
+
+    requirements = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))[
+        "project"
+    ]["optional-dependencies"]["dev"]
+    # Parse the distribution name out of each requirement rather than substring-matching the
+    # joined string: `"pytest" in "pytest-cov>=5.0"` is true, so a substring check would report
+    # `pytest` as declared when only `pytest-cov` is -- a false negative in exactly the place the
+    # real failure happened.
+    declared = {
+        re.split(r"[<>=!\[;\s]", spec, maxsplit=1)[0].strip().lower() for spec in requirements
+    }
+    gate_tools = {"ruff", "mypy", "pytest", "pytest-cov"}
+    missing = sorted(gate_tools - declared)
+    wave.check(
+        "every gate tool is declared in the dev extra",
+        not missing,
+        ", ".join(missing) + " missing" if missing else ", ".join(sorted(gate_tools)),
+    )
+
 
 # --------------------------------------------------------------- wave 2: isolation
 
