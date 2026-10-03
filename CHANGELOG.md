@@ -101,6 +101,18 @@ The release that turns the working proof into something deployable.
 
 ### Fixed
 
+- **The cross-platform type check was one-sided, so the gate passed on Windows and failed
+  everywhere else.** The cross-process lock in `audit.py` needs a `type: ignore` on each of its
+  two branches — `fcntl` on POSIX, `msvcrt` on Windows — because a checker resolves only the
+  platform it runs on. The first version had them on the `fcntl` side only. Every CI job on
+  Windows passed; all eight on Linux and macOS failed, and `mypy --platform linux` reproduces it
+  exactly on a Windows machine, which is why wave 1 now checks all three platforms instead of
+  the local one.
+- **`mypy` and `pytest-cov` were gates without being dependencies.** They were wired into the CI
+  workflow and into `tools/acceptance.py` while still only being installed by hand, so every
+  local run passed and all twelve CI jobs failed at the coverage step — while `Test` and `Lint`
+  passed on every platform. Declared in the `dev` extra now, and wave 1 fails if a tool a gate
+  shells out to is not declared.
 - **One damaged audit line made the entire trail unreadable.** `entries()` called `json.loads`
   on every line and raised on anything it could not parse, so a writer killed mid-append — which
   leaves a half-written line, and is a normal thing to find in a file customers grep and archive

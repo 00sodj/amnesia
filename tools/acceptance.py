@@ -137,16 +137,27 @@ def wave_1_static(wave: Wave, tmp: Path) -> None:
     # Type checking is a gate, not a suggestion: `mypy` found two real defects when it was first
     # switched on (a `raise` that could receive `None`, and a predicate annotated narrower than
     # the errors it is handed). Without the gate they come back.
-    types = subprocess.run(
-        [sys.executable, "-m", "mypy"], cwd=REPO, capture_output=True, text=True
+    #
+    # Checked for all three platforms, not just the one running. mypy resolves one platform's
+    # modules at a time, so a Windows-only repository passes locally and fails on Linux and macOS:
+    # the cross-process lock in `audit.py` carries a `type: ignore` on each of its two branches,
+    # and the first version had them on the `fcntl` side only. Every CI job on Windows passed and
+    # every one on Linux and macOS failed, with `--platform linux` reproducing it exactly.
+    platform_results = {}
+    for platform in ("win32", "linux", "darwin"):
+        result = subprocess.run(
+            [sys.executable, "-m", "mypy", "--platform", platform],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+        )
+        platform_results[platform] = result
+    broken = [name for name, r in platform_results.items() if r.returncode]
+    first = platform_results[broken[0]] if broken else None
+    detail = (
+        (first.stdout + first.stderr).strip().splitlines()[-1][:120] if first is not None else ""
     )
-    wave.check(
-        "mypy is clean",
-        types.returncode == 0,
-        (types.stdout + types.stderr).strip().splitlines()[-1][:120]
-        if (types.stdout + types.stderr).strip()
-        else "",
-    )
+    wave.check("mypy is clean on every platform", not broken, ", ".join(broken) or detail)
 
     # Every tool a gate shells out to must be declared in the `dev` extra, or a clean checkout
     # cannot run the gate it is expected to run. This is not hypothetical: `mypy` and `pytest-cov`

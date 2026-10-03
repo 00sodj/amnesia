@@ -24,6 +24,38 @@ from .models import utcnow
 _TAIL_BLOCK = 4096
 
 
+def _lock(handle: BinaryIO) -> None:
+    """Take an exclusive lock on the open log.
+
+    Both branches carry a `type: ignore[attr-defined]` and **both are needed**, one per platform:
+    a checker resolves only the platform it is running on, so `fcntl` is unresolvable on Windows
+    and `msvcrt` on Linux and macOS. Whichever branch the local platform does not take leaves an
+    unused ignore behind — which is exactly why `warn_unused_ignores` is off in `pyproject.toml`.
+    Getting this half-right is a real failure mode: the ignores were originally only on the
+    `fcntl` side, so the gate passed on Windows and failed on Linux and macOS.
+    """
+    if os.name == "nt":
+        import msvcrt
+
+        msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)  # type: ignore[attr-defined]
+    else:
+        import fcntl
+
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)  # type: ignore[attr-defined]
+
+
+def _unlock(handle: BinaryIO) -> None:
+    """Release the lock taken by `_lock`. See that function for the two-sided ignore."""
+    if os.name == "nt":
+        import msvcrt
+
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]
+    else:
+        import fcntl
+
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)  # type: ignore[attr-defined]
+
+
 def _tail_link(handle: BinaryIO) -> tuple[int, str]:
     """Read the last entry and return the `(seq, prev)` the next one should link to.
 
@@ -139,28 +171,12 @@ class AuditLog:
         handle = self.path.open("a+b")
         try:
             handle.seek(0)
-            if os.name == "nt":
-                import msvcrt
-
-                msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
-            else:
-                import fcntl
-
-                # mypy resolves `fcntl` against Windows stubs, where it has no attributes;
-                # this branch is unreachable on Windows.
-                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)  # type: ignore[attr-defined]
+            _lock(handle)
             try:
                 yield handle
             finally:
                 handle.seek(0)
-                if os.name == "nt":
-                    import msvcrt
-
-                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
-                else:
-                    import fcntl
-
-                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)  # type: ignore[attr-defined]
+                _unlock(handle)
         finally:
             handle.close()
 
