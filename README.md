@@ -7,7 +7,7 @@ should never be stored, who may see it, and whether the deletion actually happen
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/github/license/00sodj/amnesia)](LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![M8ven Score](https://m8ven.ai/badge/mcp/00sodj/amnesia)](https://m8ven.ai/mcp/00sodj/amnesia?s=readme)
+[![M8ven Score](https://m8ven.ai/badge/mcp/00sodj-amnesia-1hi1kn?v=c219c2eab7e8061a8de48d1a59a1896d)](https://m8ven.ai/mcp/00sodj-amnesia-1hi1kn?s=readme)
 
 > Most memory stores answer *"how do we remember more?"*
 > Amnesia answers *"what should never be stored, who may see it, and when should it be forgotten?"*
