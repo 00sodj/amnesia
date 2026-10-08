@@ -16,10 +16,11 @@ should never be stored, who may see it, and whether the deletion actually happen
 PyYAML the only runtime dependency.
 
 **On the M8ven badge:** it is a third-party directory's listing for this repository, not a finding by
-this project, and it is the one badge above that no test here defends. "Verified" there means the
-publisher proved control of the repository — it is not an audit of this code. That directory also caps
-new projects at grade C until they accumulate adoption, so the grade beside it tracks the age of a
-repository rather than the quality of its code. The numbers this project stands behind are the ones it
+this project, and it is the one badge above that no test here defends. Its left half is that
+directory's own status word for this repository, and the word changes as that standing changes —
+none of the words it uses means this code was audited. That directory also caps new projects at
+grade C until they accumulate adoption, so the grade beside it tracks the age of a repository
+rather than the quality of its code. The numbers this project stands behind are the ones it
 measures itself.
 
 > **Not on PyPI.** `pip install amnesia` installs an unrelated package that owns the name. Install

@@ -36,9 +36,11 @@ and policies are versioned separately through the `revision` key in the policy f
   because `store.add` only inserts — superseding happens later, in `sweep` — and idempotent because
   identical content under the same subject and source is already collapsed to one memory.
 
-- The M8ven badge in the README, with a note stating what it is: a third-party directory's score,
-  capped at grade C for repositories without adoption history, and the one badge in that row no
-  test here defends.
+- The M8ven badge in the README, with a note stating what it is: a third-party directory's listing,
+  capped at grade C for repositories without adoption history, and the one badge in that row no test
+  here defends. The note names no specific status word on purpose — that badge's left half read
+  `Score`, then `Verified`, then `Live` within a single day as the repository's standing there
+  changed, so any prose quoting one of those words starts drifting immediately.
 
 ## [0.2.0] — 2026-09-29
 
