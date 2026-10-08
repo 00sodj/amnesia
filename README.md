@@ -7,12 +7,19 @@ should never be stored, who may see it, and whether the deletion actually happen
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/github/license/00sodj/amnesia)](LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![M8ven Score](https://m8ven.ai/badge/mcp/00sodj/amnesia)](https://m8ven.ai/mcp/00sodj/amnesia?s=readme)
 
 > Most memory stores answer *"how do we remember more?"*
 > Amnesia answers *"what should never be stored, who may see it, and when should it be forgotten?"*
 
-**Status:** `0.2.0`, beta. 252 tests at 93% coverage, ruff- and mypy-clean. Python 3.10+,
+**Status:** `0.2.0`, beta. 256 tests at 93% coverage, ruff- and mypy-clean. Python 3.10+,
 PyYAML the only runtime dependency.
+
+**On the M8ven badge:** it is a third-party directory's score for this repository, not a finding by
+this project, and it is the one badge above that no test here defends. That directory caps new
+projects at grade C until they accumulate adoption, so its grade tracks the age of a repository
+rather than the quality of its code. The numbers this project stands behind are the ones it
+measures itself.
 
 > **Not on PyPI.** `pip install amnesia` installs an unrelated package that owns the name. Install
 > from source — see [Install](#install).
@@ -428,19 +435,37 @@ Then point your client at it:
 `AMNESIA_DB` and `AMNESIA_AUDIT` default to paths relative to the *process* working
 directory, which for a GUI client is rarely where you think it is. Set them explicitly.
 
-| Tool | Purpose |
-| --- | --- |
-| `memory_write` | Write, through the write gate and poisoning detection |
-| `memory_recall` | Recall scoped to identity; also returns what was withheld |
-| `memory_forget` | Deletion on request, with a compliance receipt |
-| `memory_sweep` | Maintenance: supersede, archive, expire |
-| `memory_explain` | Trace one memory's lifecycle (takes a principal; without one, content is withheld) |
-| `memory_stats` | Store overview |
-| `memory_audit_tail` | Recent audit entries |
-| `memory_flagged` | Memories tagged by detection (metadata only — see below) |
-| `memory_report` | Compliance report for a window |
-| `memory_verify` | Deployment self-check |
-| `memory_policy` | Active policy revision and fingerprint |
+| Tool | Purpose | What the host is told |
+| --- | --- | --- |
+| `memory_write` | Write, through the write gate and poisoning detection | not read-only, additive, idempotent |
+| `memory_recall` | Recall scoped to identity; also returns what was withheld | read-only |
+| `memory_forget` | Deletion on request, with a compliance receipt | not read-only, **destructive** |
+| `memory_sweep` | Maintenance: supersede, archive, expire | not read-only, **destructive** |
+| `memory_explain` | Trace one memory's lifecycle (takes a principal; without one, content is withheld) | read-only |
+| `memory_stats` | Store overview | read-only |
+| `memory_audit_tail` | Recent audit entries | read-only |
+| `memory_flagged` | Memories tagged by detection (metadata only — see below) | read-only |
+| `memory_report` | Compliance report for a window | read-only |
+| `memory_verify` | Deployment self-check | read-only |
+| `memory_policy` | Active policy revision and fingerprint | read-only |
+
+Every tool declares all four MCP hints explicitly, and `openWorldHint` is false on all of them:
+these work on this process's own store and audit file, not on an open world of entities. That is
+not bookkeeping. The specification defaults `destructiveHint` to **true**, so a tool that declares
+nothing is announced to the host as possibly destructive — and with all eleven undeclared,
+`memory_stats` and `memory_forget` reach the host looking identical. A host that cannot tell them
+apart either confirms every call, at which point the confirmations stop being read, or confirms
+none, at which point the one call that erases a memory is treated as routine.
+
+The read-only claim is checked rather than asserted.
+`test_read_only_tools_do_not_change_a_stored_memory` calls all eight and fails if any of them adds,
+alters or removes a record. Reading does touch `last_access` and does append an audit entry, which
+is exactly why `idempotentHint` is left at its default instead of claimed. `memory_write` reports
+itself as additive because that is what it is: `store.add` inserts, and superseding an older fact
+happens later, in `memory_sweep`. Both directions are tested —
+`test_the_tools_declared_destructive_really_do_change_stored_state` exists so that a
+`destructiveHint` true everywhere by habit cannot quietly become the state this annotation set is
+meant to replace.
 
 `memory_flagged` returns no content on purpose. The MCP surface has no caller identity to
 check against, so including it would let any agent read memories it is not cleared for,

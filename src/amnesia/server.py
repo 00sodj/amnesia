@@ -65,6 +65,59 @@ except ImportError:  # pragma: no cover
     except ImportError:  # server extra not installed
         _Server = None  # type: ignore[assignment,misc]
 
+try:  # both 1.x and 2.x carry the hint types here
+    from mcp.types import ToolAnnotations as _Annotations
+except ImportError:  # pragma: no cover - an SDK too old to declare hints
+    _Annotations = None  # type: ignore[assignment,misc]
+
+
+def _declared(*, read_only: bool, destructive: bool, idempotent: bool) -> Any:
+    """Build a full set of tool hints, always naming all four.
+
+    Naming all four matters because omitting one is not neutral: the specification
+    defaults `destructiveHint` to **true**, so a tool that declares nothing is presented
+    to the host as possibly destructive. With every tool undeclared, a read and an
+    irreversible delete reach the host looking identical -- and a host that cannot tell
+    them apart either confirms everything, at which point the confirmations stop being
+    read, or confirms nothing, at which point the one call that destroys data is treated
+    as routine. `memory_forget` must not look like `memory_stats`.
+
+    `openWorldHint` is false throughout: every tool operates on this process's own SQLite
+    store and audit file, and none of them reaches an entity outside it.
+
+    Returns None on an SDK too old to carry hints, which is a no-op -- `annotations=None`
+    is the decorator's default and the server still starts.
+    """
+    if _Annotations is None:  # pragma: no cover - depends on the SDK version
+        return None
+    return _Annotations(
+        read_only_hint=read_only,
+        destructive_hint=destructive,
+        idempotent_hint=idempotent,
+        open_world_hint=False,
+    )
+
+
+# The three shapes a tool here can take. Each is a claim a test defends.
+#
+# `_READ` -- adds, alters and removes nothing. These tools do append an audit entry and
+#   touch `last_access`, and neither is a change to what is stored or who may read it:
+#   one is the record *of* the read, the other is the access bookkeeping retention later
+#   acts on. `idempotentHint` is deliberately left false rather than claimed, because
+#   that `last_access` write means repeating a read is not strictly without effect.
+#
+# `_ADDITIVE` -- `memory_write` inserts and nothing else. That is not a guess: `store.add`
+#   is a plain insert, and the superseding of an older fact happens later, in `sweep`.
+#   `idempotentHint` is true because repeat-writes of identical content under the same
+#   subject and source are collapsed to one memory, which is checked by
+#   `test_identical_write_from_the_same_source_is_a_duplicate`.
+#
+# `_MUTATING` -- can take a record away from `recall`: `sweep` marks older conflicting
+#   facts `superseded` and cold ones `archived`, and `forget` deletes physically.
+_READ = _declared(read_only=True, destructive=False, idempotent=False)
+_ADDITIVE = _declared(read_only=False, destructive=False, idempotent=True)
+_MUTATING = _declared(read_only=False, destructive=True, idempotent=False)
+
 
 if _Server is not None:
 
@@ -83,7 +136,7 @@ if _Server is not None:
 
     mcp = _build_server()
 
-    @mcp.tool()
+    @mcp.tool(annotations=_ADDITIVE)
     def memory_write(
         content: str,
         source: str,
@@ -98,8 +151,9 @@ if _Server is not None:
         Credentials are rejected outright; personal data is redacted before storage.
 
         scope: personal | project | confidential | hr_only
-        subject: used for fact-conflict detection; a newer memory under the same
-                 subject supersedes the older one.
+        subject: used for fact-conflict detection. A newer memory under the same subject
+                 supersedes the older one on the next maintenance pass (`memory_sweep`),
+                 not at write time -- a write only ever adds.
         """
         return get_governor().remember(
             content,
@@ -111,7 +165,7 @@ if _Server is not None:
             confidence=confidence,
         )
 
-    @mcp.tool()
+    @mcp.tool(annotations=_READ)
     def memory_recall(
         query: str,
         principal_id: str,
@@ -129,7 +183,7 @@ if _Server is not None:
             query, principal=principal_of(principal_id, tenant, roles), limit=limit
         )
 
-    @mcp.tool()
+    @mcp.tool(annotations=_MUTATING)
     def memory_forget(
         principal_id: str,
         tenant: str,
@@ -150,13 +204,18 @@ if _Server is not None:
             reason=reason,
         )
 
-    @mcp.tool()
+    @mcp.tool(annotations=_MUTATING)
     def memory_sweep(tenant: str = "", stale_days: int = 180) -> dict[str, Any]:
         """Maintenance pass: supersede conflicting facts, archive cold memories,
-        expire memories past their retention window."""
+        expire memories past their retention window.
+
+        This changes records that already exist -- superseded and archived memories stop
+        coming back from `memory_recall`. Nothing is deleted, so the version chain stays
+        readable through `memory_explain`.
+        """
         return get_governor().sweep(tenant=tenant or None, stale_days=stale_days)
 
-    @mcp.tool()
+    @mcp.tool(annotations=_READ)
     def memory_explain(
         memory_id: str,
         principal_id: str = "",
@@ -175,17 +234,17 @@ if _Server is not None:
         )
         return get_governor().explain(memory_id, principal=principal)
 
-    @mcp.tool()
+    @mcp.tool(annotations=_READ)
     def memory_stats(tenant: str = "") -> dict[str, Any]:
         """Store overview: total count, distribution by scope and by status."""
         return get_governor().stats(tenant or None)
 
-    @mcp.tool()
+    @mcp.tool(annotations=_READ)
     def memory_audit_tail(n: int = 20) -> list[dict[str, Any]]:
         """Most recent n audit entries."""
         return get_governor().audit.tail(n)
 
-    @mcp.tool()
+    @mcp.tool(annotations=_READ)
     def memory_flagged(tenant: str = "") -> list[dict[str, Any]]:
         """Memories that were stored but tagged by poisoning detection.
 
@@ -198,7 +257,7 @@ if _Server is not None:
 
         return flagged_memories(get_governor().store, tenant or None)
 
-    @mcp.tool()
+    @mcp.tool(annotations=_READ)
     def memory_report(tenant: str = "", days: int = 30) -> dict[str, Any]:
         """Compliance report for a window: recalls, refusals, writes, poisoning,
         deletions and policy changes, aggregated from the audit stream."""
@@ -206,7 +265,7 @@ if _Server is not None:
 
         return build_report(get_governor(), tenant=tenant or None, window_days=days)
 
-    @mcp.tool()
+    @mcp.tool(annotations=_READ)
     def memory_verify() -> dict[str, Any]:
         """Check that governance is actually in force.
 
@@ -217,7 +276,7 @@ if _Server is not None:
 
         return summarise(run_checks(get_governor()))
 
-    @mcp.tool()
+    @mcp.tool(annotations=_READ)
     def memory_policy(include_config: bool = False) -> dict[str, Any]:
         """The active policy's identity: revision, fingerprint and source path.
 

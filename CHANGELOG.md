@@ -3,6 +3,43 @@
 Notable changes per release. The project follows [Semantic Versioning](https://semver.org/),
 and policies are versioned separately through the `revision` key in the policy file.
 
+## [Unreleased]
+
+### Added
+
+- **Every MCP tool now declares its four hints** — `readOnlyHint`, `destructiveHint`,
+  `idempotentHint`, `openWorldHint`. None were declared before, and an undeclared hint is not
+  neutral: the specification defaults `destructiveHint` to **true**, so all eleven tools were
+  announced to a host as possibly destructive, and `memory_stats` reached it looking exactly like
+  `memory_forget`. A host that cannot tell a read from an irreversible delete either confirms
+  everything — at which point the confirmations stop being read — or confirms nothing, at which
+  point the memory that gets physically deleted is treated as routine. For a project whose whole
+  claim is that an irreversible action should be distinguishable and evidenced, that was a defect
+  in the thesis, not just in the metadata.
+
+  Found by a third-party directory that indexes and statically scans MCP servers: it listed this
+  repository at commit `310222f` and reported eleven of eleven tools missing one or more hints.
+  Its observations were accurate and checkable — right commit, right file count, right tool count —
+  while its *grade* meant nothing, because that directory caps new projects at C until they
+  accumulate adoption. The finding was real; the score was not. Both are worth keeping straight.
+
+  Both directions are tested, deliberately.
+  `test_read_only_tools_do_not_change_a_stored_memory` calls all eight read-only tools and fails if
+  any of them adds, alters or removes a record;
+  `test_the_tools_declared_destructive_really_do_change_stored_state` checks the other way, so a
+  `destructiveHint` that is true everywhere by habit cannot creep back in. The read-only check was
+  verified by falsifying it — pointed at `memory_sweep`, it failed naming the tool and the
+  `active` → `archived` transition, which is the only way to know a check has teeth.
+
+  `idempotentHint` is left at its default for the query tools rather than claimed: reading touches
+  `last_access`, so "no additional effect" would not be true. `memory_write` is marked additive
+  because `store.add` only inserts — superseding happens later, in `sweep` — and idempotent because
+  identical content under the same subject and source is already collapsed to one memory.
+
+- The M8ven badge in the README, with a note stating what it is: a third-party directory's score,
+  capped at grade C for repositories without adoption history, and the one badge in that row no
+  test here defends.
+
 ## [0.2.0] — 2026-09-29
 
 The release that turns the working proof into something deployable.

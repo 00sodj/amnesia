@@ -8,6 +8,7 @@ must not become a way to read memories the caller is not cleared for.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -418,3 +419,148 @@ def test_mcp_sweep_and_stats(server):
     assert server.memory_sweep(TENANT)["counts"]["superseded"] == 0
     assert server.memory_stats(TENANT)["total"] == 0
     assert isinstance(server.memory_audit_tail(5), list)
+
+
+# ------------------------------------------------------------- tool annotations
+
+# The hints, per tool, held as a table rather than asserted one decorator at a time: a new
+# tool then has to be added here deliberately. That is the point -- an undeclared hint is
+# not neutral, because the specification defaults `destructiveHint` to true, so silence is
+# read as "this may destroy data".
+HINTS = {
+    #                 read_only, destructive, idempotent
+    "memory_write": (False, False, True),
+    "memory_recall": (True, False, False),
+    "memory_forget": (False, True, False),
+    "memory_sweep": (False, True, False),
+    "memory_explain": (True, False, False),
+    "memory_stats": (True, False, False),
+    "memory_audit_tail": (True, False, False),
+    "memory_flagged": (True, False, False),
+    "memory_report": (True, False, False),
+    "memory_verify": (True, False, False),
+    "memory_policy": (True, False, False),
+}
+
+
+def _hints_of(server) -> dict[str, dict[str, Any]]:
+    import asyncio
+
+    declared: dict[str, dict[str, Any]] = {}
+    for tool in asyncio.run(server.mcp.list_tools()):
+        assert tool.annotations is not None, f"{tool.name} declares no hints at all"
+        declared[tool.name] = tool.annotations.model_dump(by_alias=True, exclude_none=True)
+    return declared
+
+
+def _stored_view(server) -> dict[str, tuple[Any, ...]]:
+    """Everything stored, minus `last_access`.
+
+    `last_access` is excluded on purpose, and the read-only test says why: reading a memory
+    touches it, and that bookkeeping is what retention later acts on. What `readOnlyHint`
+    claims is the part a caller can observe -- nothing added, altered or removed.
+    """
+    return {
+        item.id: (item.content, item.status, item.scope, item.subject, tuple(item.tags))
+        for item in server.get_governor().store.all_items()
+    }
+
+
+def test_every_hint_is_declared_as_a_real_boolean(server):
+    """A hint that is omitted is not neutral: `destructiveHint` defaults to true.
+
+    With every hint undeclared, a read and an irreversible delete reach the host looking
+    identical -- and a host that cannot tell them apart either confirms every call, at which
+    point the confirmations stop being read, or confirms none, at which point the one call
+    that destroys data is treated as routine.
+    """
+    for name, hints in _hints_of(server).items():
+        for field in ("readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"):
+            assert hints.get(field) is not None, f"{name} omits {field}"
+            assert isinstance(hints[field], bool), f"{name}.{field} is {hints[field]!r}"
+        assert hints["openWorldHint"] is False, "every tool works on this process's own store"
+
+
+def test_the_declared_hints_match_this_table(server):
+    declared = {
+        name: (h["readOnlyHint"], h["destructiveHint"], h["idempotentHint"])
+        for name, h in _hints_of(server).items()
+    }
+    assert declared == HINTS
+
+
+def test_read_only_tools_do_not_change_a_stored_memory(server):
+    """The `readOnlyHint` claim, checked rather than asserted in a comment.
+
+    These tools do append an audit entry and do touch `last_access`. Neither changes what is
+    stored or who may read it -- one is the record *of* the read, the other is retention
+    bookkeeping -- so the observable claim still holds, and this test is what makes it a
+    claim rather than a wish.
+    """
+    server.memory_write(
+        "A project note about the Falcon programme.",
+        source="wiki",
+        tenant=TENANT,
+        subject="falcon",
+    )
+    confidential = server.memory_write(
+        "Dana Whitfield's 2025 rating is B+.",
+        source="hr-system",
+        tenant=TENANT,
+        scope="hr_only",
+        owner="dana",
+        subject="perf:dana",
+    )
+
+    queries = {
+        "memory_recall": lambda: server.memory_recall("project note", "alice", TENANT),
+        "memory_explain": lambda: server.memory_explain(confidential["id"]),
+        "memory_stats": lambda: server.memory_stats(TENANT),
+        "memory_audit_tail": lambda: server.memory_audit_tail(5),
+        "memory_flagged": lambda: server.memory_flagged(TENANT),
+        "memory_report": lambda: server.memory_report(TENANT, days=7),
+        "memory_verify": lambda: server.memory_verify(),
+        "memory_policy": lambda: server.memory_policy(),
+    }
+    assert set(queries) == {name for name, (read_only, _, _) in HINTS.items() if read_only}, (
+        "every tool declared read-only has to be exercised here, or the claim is untested"
+    )
+
+    for name, call in queries.items():
+        before = _stored_view(server)
+        call()
+        assert _stored_view(server) == before, f"{name} changed stored state"
+
+
+def test_the_tools_declared_destructive_really_do_change_stored_state(server):
+    """The check runs both ways, deliberately.
+
+    A `destructiveHint` that was true everywhere by habit would carry no information at all,
+    which is precisely the state this annotation set exists to leave behind.
+    """
+    older = server.memory_write(
+        "The PTO allowance is 10 days.", source="handbook", tenant=TENANT, subject="pto"
+    )
+    newer = server.memory_write(
+        "The PTO allowance is 15 days.", source="handbook", tenant=TENANT, subject="pto"
+    )
+
+    before = _stored_view(server)
+    server.memory_sweep(TENANT)
+    assert _stored_view(server) != before, "sweep claims it can supersede, so it must"
+
+    store = server.get_governor().store
+    statuses = sorted({store.get(older["id"]).status, store.get(newer["id"]).status})
+    assert statuses == ["active", "superseded"], "one of the two facts must give way"
+
+    doomed = server.memory_write(
+        "The Northwind contract is worth $2,400,000.",
+        source="contract-db",
+        tenant=TENANT,
+        scope="confidential",
+    )
+    assert doomed["id"] in _stored_view(server)
+    server.memory_forget(
+        "dave", TENANT, roles="admin", memory_ids=doomed["id"], reason="GDPR #2"
+    )
+    assert doomed["id"] not in _stored_view(server), "forget claims it deletes, so it must"
