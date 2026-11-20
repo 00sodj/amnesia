@@ -223,6 +223,76 @@ def test_reload_recovers_once_the_broken_file_is_fixed(tmp_path: Path):
         gov.close()
 
 
+def test_yaml_syntax_error_during_reload_keeps_serving_and_audits_once(tmp_path: Path):
+    """A YAML syntax typo (not just a schema error) must not crash requests."""
+    policy_path = tmp_path / "p.yaml"
+    write_policy(policy_path, revision="1", employee_clearance=1)
+    gov = MemoryGovernor(
+        policy_path=policy_path,
+        db_path=tmp_path / "m.db",
+        audit_path=tmp_path / "a.jsonl",
+    )
+    try:
+        policy_path.write_text("roles: [unclosed\n", encoding="utf-8")
+
+        result = gov.maybe_reload_policy()
+        assert result is not None
+        assert result["reloaded"] is False
+        assert "Invalid YAML" in result["error"]
+        assert gov.policy.revision == "1"
+
+        stored = gov.remember("Still serving after syntax error.", source="wiki", tenant=TENANT)
+        assert stored["stored"] is True
+
+        failures = [e for e in gov.audit.entries() if e["event"] == "policy.reload_failed"]
+        assert len(failures) == 1
+
+        write_policy(policy_path, revision="2", employee_clearance=2)
+        assert gov.maybe_reload_policy()["reloaded"] is True
+        assert gov.policy.revision == "2"
+    finally:
+        gov.close()
+
+
+def test_invalid_utf8_during_reload_keeps_serving_and_audits_once(tmp_path: Path):
+    policy_path = tmp_path / "p.yaml"
+    write_policy(policy_path, revision="1", employee_clearance=1)
+    gov = MemoryGovernor(
+        policy_path=policy_path,
+        db_path=tmp_path / "m.db",
+        audit_path=tmp_path / "a.jsonl",
+    )
+    try:
+        policy_path.write_bytes(b"\xff\xfe\x00invalid")
+
+        result = gov.maybe_reload_policy()
+        assert result is not None
+        assert result["reloaded"] is False
+        assert gov.policy.revision == "1"
+        assert gov.maybe_reload_policy() is None
+
+        failures = [e for e in gov.audit.entries() if e["event"] == "policy.reload_failed"]
+        assert len(failures) == 1
+    finally:
+        gov.close()
+
+
+@pytest.mark.parametrize(
+    "bad_yaml",
+    [
+        "scopes: null\n",
+        "scopes:\n  weird:\n",
+        "roles:\n  employee:\n    clearance: true\n",
+        "roles: [employee]\n",
+    ],
+)
+def test_malformed_policy_sections_raise_policy_error(tmp_path: Path, bad_yaml: str):
+    path = tmp_path / "bad.yaml"
+    path.write_text(bad_yaml, encoding="utf-8")
+    with pytest.raises(PolicyError):
+        PolicyEngine.from_yaml(path)
+
+
 # ------------------------------------------------------------------- diffing
 
 

@@ -174,9 +174,12 @@ class PolicyEngine:
             raise PolicyError(f"Policy file not found: {source}")
         try:
             text = source.read_text(encoding="utf-8")
-        except OSError as exc:
+        except (OSError, UnicodeDecodeError) as exc:
             raise PolicyError(f"Cannot read policy file {source}: {exc}") from exc
-        raw = yaml.safe_load(text) or {}
+        try:
+            raw = yaml.safe_load(text) or {}
+        except yaml.YAMLError as exc:
+            raise PolicyError(f"Invalid YAML in policy file {source}: {exc}") from exc
         if not isinstance(raw, dict):
             raise PolicyError(f"Policy file must be a YAML mapping: {path}")
         engine = cls(raw)
@@ -185,8 +188,19 @@ class PolicyEngine:
         return engine
 
     def _validate(self) -> None:
+        for section in ("roles", "scopes", "write", "read", "poison"):
+            if not isinstance(self.config.get(section), Mapping):
+                raise PolicyError(f"Policy section '{section}' must be a mapping")
+        for role, spec in self.config["roles"].items():
+            if not isinstance(spec, Mapping) or "clearance" not in spec:
+                raise PolicyError(f"Role '{role}' must be a mapping with 'clearance'")
+            clearance = spec["clearance"]
+            if isinstance(clearance, bool) or not isinstance(clearance, int):
+                raise PolicyError(
+                    f"Role '{role}' clearance must be an integer, got {clearance!r}"
+                )
         for scope, spec in self.config["scopes"].items():
-            if "min_clearance" not in spec:
+            if not isinstance(spec, Mapping) or "min_clearance" not in spec:
                 raise PolicyError(f"Scope '{scope}' is missing min_clearance")
         for level in ("high", "medium", "low"):
             action = self.config.get("poison", {}).get(f"on_{level}", "flag")

@@ -111,8 +111,31 @@ class MemoryGovernor:
         if path is None or not Path(path).exists():
             return None
 
-        text = Path(path).read_text(encoding="utf-8")
-        fingerprint = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        try:
+            text = Path(path).read_text(encoding="utf-8")
+            fingerprint = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        except (OSError, UnicodeDecodeError) as exc:
+            try:
+                fingerprint = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+            except OSError:
+                fingerprint = f"unreadable:{type(exc).__name__}:{exc}"
+            if fingerprint == self._bad_fingerprint:
+                return None
+            self._bad_fingerprint = fingerprint
+            error = f"Cannot read policy file {path}: {exc}"
+            self.audit.record(
+                "policy.reload_failed",
+                path=str(path),
+                offending_sha256=fingerprint,
+                active_sha256=self.policy.fingerprint,
+                active_revision=self.policy.revision,
+                error=error,
+            )
+            return {
+                "reloaded": False,
+                "error": error,
+                "active_revision": self.policy.revision,
+            }
         if fingerprint == self.policy.fingerprint:
             return None
         if fingerprint == self._bad_fingerprint:
