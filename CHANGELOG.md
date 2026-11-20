@@ -3,7 +3,11 @@
 Notable changes per release. The project follows [Semantic Versioning](https://semver.org/),
 and policies are versioned separately through the `revision` key in the policy file.
 
-## [Unreleased]
+## [0.2.1] — 2026-11-21
+
+### Fixed
+
+- **A YAML syntax typo or malformed section in the policy file crashed hot reload instead of keeping the last known good policy.** `PolicyEngine.from_yaml` let `yaml.YAMLError` and `UnicodeDecodeError` escape uncaught, and `_validate()` assumed every top-level section (`roles`, `scopes`, `write`, `read`, `poison`) and every role/scope entry was already a mapping. Because `maybe_reload_policy` only catches `PolicyError` and the CLI only catches `AmnesiaError`, saving a syntactically broken edit (e.g. `roles: [unclosed`) or an empty section (`scopes: null`) crashed subsequent requests instead of keeping the previous policy active and auditing `policy.reload_failed` once — and on the CLI printed a raw traceback. All parse, encoding, and structural errors now raise `PolicyError`, and `maybe_reload_policy` handles unreadable/invalid-UTF-8 files by deduplicating on fingerprint and reporting `policy.reload_failed` once.
 
 ### Added
 

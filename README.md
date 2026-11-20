@@ -12,7 +12,7 @@ should never be stored, who may see it, and whether the deletion actually happen
 > Most memory stores answer *"how do we remember more?"*
 > Amnesia answers *"what should never be stored, who may see it, and when should it be forgotten?"*
 
-**Status:** `0.2.0`, beta. 256 tests at 93% coverage, ruff- and mypy-clean. Python 3.10+,
+**Status:** `0.2.1`, beta. 262 tests at 93% coverage, ruff- and mypy-clean. Python 3.10+,
 PyYAML the only runtime dependency.
 
 **On the M8ven badge:** it is a third-party directory's listing for this repository, not a finding by
