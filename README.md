@@ -14,7 +14,7 @@
 
 ![Amnesia Demo](docs/demo.svg)
 
-**Status:** `0.2.2`, beta · 262 tests at 93% coverage · ruff- and mypy-clean · Python 3.10+ · PyYAML the only core dependency.
+**Status:** `0.2.2`, beta · 262 tests at 93% coverage · ruff- and mypy-clean · Python 3.10–3.13.
 
 ### Try in 10 seconds
 
@@ -25,7 +25,7 @@
   "mcpServers": {
     "amnesia": {
       "command": "uvx",
-      "args": ["--from", "amnesia-gov[server]", "amnesia-server"],
+      "args": ["--from", "amnesia-gov", "amnesia-server"],
       "env": {
         "AMNESIA_DB": "/absolute/path/to/amnesia.db",
         "AMNESIA_AUDIT": "/absolute/path/to/audit/memory.jsonl"
@@ -38,7 +38,7 @@
 Or install as a Python library / CLI:
 
 ```bash
-pip install "amnesia-gov[server]"   # drop "[server]" for library + CLI only (PyYAML only)
+pip install amnesia-gov
 ```
 
 > **Package name note:** On PyPI the package is **`amnesia-gov`** (`pip install amnesia` installs an unrelated package). The Python import name (`import amnesia`) and CLI commands (`amnesia`, `amnesia-server`) are unchanged.
