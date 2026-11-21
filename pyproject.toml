@@ -3,8 +3,8 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "amnesia"
-version = "0.2.1"
+name = "amnesia-gov"
+version = "0.2.2"
 description = "A governance layer for agent memory: write admission, read authorization, poisoning detection, forgetting, and a full audit trail"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -37,6 +37,12 @@ classifiers = [
 dependencies = [
     "PyYAML>=6.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/00sodj/amnesia"
+Repository = "https://github.com/00sodj/amnesia"
+Issues = "https://github.com/00sodj/amnesia/issues"
+Changelog = "https://github.com/00sodj/amnesia/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 server = ["mcp>=1.2.0"]

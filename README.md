@@ -1,9 +1,9 @@
 # Amnesia
 
-**A governance layer for agent memory.** Not another memory store — the layer that decides what
-should never be stored, who may see it, and whether the deletion actually happened.
+**A governance layer for AI agent memory.** Write gate, identity-scoped read ACL, prompt-injection defense, real GDPR deletion receipts, and a SHA-256 hash-chained audit trail — exposed as a Python library, CLI, and 11-tool MCP server.
 
 [![CI](https://github.com/00sodj/amnesia/actions/workflows/ci.yml/badge.svg)](https://github.com/00sodj/amnesia/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/amnesia-gov.svg)](https://pypi.org/project/amnesia-gov/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/github/license/00sodj/amnesia)](LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -12,22 +12,45 @@ should never be stored, who may see it, and whether the deletion actually happen
 > Most memory stores answer *"how do we remember more?"*
 > Amnesia answers *"what should never be stored, who may see it, and when should it be forgotten?"*
 
-**Status:** `0.2.1`, beta. 262 tests at 93% coverage, ruff- and mypy-clean. Python 3.10+,
-PyYAML the only runtime dependency.
+![Amnesia Demo](docs/demo.svg)
 
-**On the M8ven badge:** it is a third-party directory's listing for this repository, not a finding by
-this project, and it is the one badge above that no test here defends. Its left half is that
-directory's own status word for this repository, and the word changes as that standing changes —
-none of the words it uses means this code was audited. That directory also caps new projects at
-grade C until they accumulate adoption, so the grade beside it tracks the age of a repository
-rather than the quality of its code. The numbers this project stands behind are the ones it
-measures itself.
+**Status:** `0.2.2`, beta · 262 tests at 93% coverage · ruff- and mypy-clean · Python 3.10+ · PyYAML the only core dependency.
 
-> **Not on PyPI.** `pip install amnesia` installs an unrelated package that owns the name. Install
-> from source — see [Install](#install).
+### Try in 10 seconds
 
-**New here? → [QUICKSTART.md](QUICKSTART.md)** — five minutes, six commands, every output captured
-from a real run.
+**Drop into Claude Desktop, Cursor, or any MCP client** (zero-install via `uvx`):
+
+```json
+{
+  "mcpServers": {
+    "amnesia": {
+      "command": "uvx",
+      "args": ["--from", "amnesia-gov[server]", "amnesia-server"],
+      "env": {
+        "AMNESIA_DB": "/absolute/path/to/amnesia.db",
+        "AMNESIA_AUDIT": "/absolute/path/to/audit/memory.jsonl"
+      }
+    }
+  }
+}
+```
+
+Or install as a Python library / CLI:
+
+```bash
+pip install "amnesia-gov[server]"   # drop "[server]" for library + CLI only (PyYAML only)
+```
+
+> **Package name note:** On PyPI the package is **`amnesia-gov`** (`pip install amnesia` installs an unrelated package). The Python import name (`import amnesia`) and CLI commands (`amnesia`, `amnesia-server`) are unchanged.
+
+**New here? → [QUICKSTART.md](QUICKSTART.md)** — five minutes, six commands, every output captured from a real run.
+
+<details>
+<summary>Note on the M8ven badge</summary>
+
+The M8ven badge is a third-party directory's listing for this repository, not a finding by this project, and it is the one badge above that no test here defends. Its left half is that directory's own status word for this repository, and the word changes as that standing changes — none of the words it uses means this code was audited. That directory also caps new projects at grade C until they accumulate adoption, so the grade beside it tracks the age of a repository rather than the quality of its code. The numbers this project stands behind are the ones it measures itself.
+
+</details>
 
 ---
 
@@ -81,7 +104,14 @@ states the limit rather than burying it.
 
 ## Install
 
-**Not on PyPI yet** — `pip install amnesia` would install an unrelated package. Use the source:
+Install from PyPI under **`amnesia-gov`** (`pip install amnesia` installs an unrelated package):
+
+```bash
+pip install "amnesia-gov[server]"    # library + CLI + MCP server
+pip install amnesia-gov              # library + CLI only (PyYAML is the only dependency)
+```
+
+Or install from source (for development and running the acceptance suite):
 
 ```bash
 git clone https://github.com/00sodj/amnesia.git && cd amnesia

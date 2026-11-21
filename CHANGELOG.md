@@ -3,6 +3,13 @@
 Notable changes per release. The project follows [Semantic Versioning](https://semver.org/),
 and policies are versioned separately through the `revision` key in the policy file.
 
+## [0.2.2] — 2026-11-21
+
+### Added
+
+- **PyPI distribution packaging (`amnesia-gov`) and automated Trusted Publishing workflow** (`.github/workflows/publish.yml`). Because `amnesia` is taken on PyPI by an unrelated package, publishing under `amnesia-gov` lets users install via `pip install "amnesia-gov[server]"` or run the MCP server with zero install via `uvx --from "amnesia-gov[server]" amnesia-server`, while keeping `import amnesia`, `amnesia`, and `amnesia-server` unchanged.
+- **Visual overview diagram (`docs/demo.svg`)** embedded at the top of `README.md` showing the write gate, identity-scoped read gate, and hash-chained audit verification at a glance.
+
 ## [0.2.1] — 2026-11-21
 
 ### Fixed
