@@ -4,6 +4,7 @@
 
 [![CI](https://github.com/00sodj/amnesia/actions/workflows/ci.yml/badge.svg)](https://github.com/00sodj/amnesia/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/amnesia-gov.svg)](https://pypi.org/project/amnesia-gov/)
+[![00sodj/amnesia MCP server](https://glama.ai/mcp/servers/00sodj/amnesia/badges/score.svg)](https://glama.ai/mcp/servers/00sodj/amnesia)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/github/license/00sodj/amnesia)](LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
