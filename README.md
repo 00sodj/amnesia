@@ -5,7 +5,7 @@
 [![CI](https://github.com/00sodj/amnesia/actions/workflows/ci.yml/badge.svg)](https://github.com/00sodj/amnesia/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/amnesia-gov.svg)](https://pypi.org/project/amnesia-gov/)
 [![00sodj/amnesia MCP server](https://glama.ai/mcp/servers/00sodj/amnesia/badges/score.svg)](https://glama.ai/mcp/servers/00sodj/amnesia)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10–3.13](https://img.shields.io/badge/python-3.10--3.13-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/github/license/00sodj/amnesia)](LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![M8ven Score](https://m8ven.ai/badge/mcp/00sodj-amnesia-1hi1kn?v=d8188de975fb03dd9b16009c3d75e282)](https://m8ven.ai/mcp/00sodj-amnesia-1hi1kn?s=readme)
@@ -15,7 +15,7 @@
 
 ![Amnesia Demo](docs/demo.svg)
 
-**Status:** `0.2.2`, beta · 262 tests at 93% coverage · ruff- and mypy-clean · Python 3.10–3.13.
+**Status:** `0.2.3`, beta · 262 tests at 93% coverage · ruff- and mypy-clean · Python 3.10–3.13.
 
 ### Try in 10 seconds
 
@@ -108,18 +108,23 @@ states the limit rather than burying it.
 Install from PyPI under **`amnesia-gov`** (`pip install amnesia` installs an unrelated package):
 
 ```bash
-pip install "amnesia-gov[server]"    # library + CLI + MCP server
-pip install amnesia-gov              # library + CLI only (PyYAML is the only dependency)
+pip install amnesia-gov              # library + CLI + MCP server (PyYAML + mcp)
+```
+
+Or run the MCP server with zero install via `uvx`:
+
+```bash
+uvx --from amnesia-gov amnesia-server
 ```
 
 Or install from source (for development and running the acceptance suite):
 
 ```bash
 git clone https://github.com/00sodj/amnesia.git && cd amnesia
-pip install -e ".[dev,server]"   # drop ",dev" if you only want to run it
+pip install -e ".[dev]"              # drop "[dev]" if you only want to run it
 ```
 
-The `server` extra pulls in the MCP SDK; the library and the CLI need only PyYAML.
+The `[server]` extra is kept as a compatibility alias so existing `pip install "amnesia-gov[server]"` commands keep working.
 
 ## Verify it before you trust it
 

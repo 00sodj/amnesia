@@ -3,6 +3,13 @@
 Notable changes per release. The project follows [Semantic Versioning](https://semver.org/),
 and policies are versioned separately through the `revision` key in the policy file.
 
+## [0.2.3] — 2026-11-24
+
+### Fixed
+
+- **PyPI package now includes `mcp>=1.2.0` out of the box.** `0.2.2` was published to PyPI before `mcp` was promoted from the optional `[server]` extra into core `dependencies` (and before `requires-python` was capped at `<3.14`), so `uvx --from amnesia-gov amnesia-server` failed with `MCP SDK not installed`. `0.2.3` ships the updated package metadata on PyPI so `pip install amnesia-gov` and `uvx --from amnesia-gov amnesia-server` work without any extra flags (`[server]` remains as an empty compatibility extra).
+- **Synced `README.md`, `QUICKSTART.md`, and `CONTRIBUTING.md`** to reflect `amnesia-gov` on PyPI, core `mcp` inclusion, Docker usage, and the `3.10–3.13` Python range.
+
 ## [0.2.2] — 2026-11-21
 
 ### Added

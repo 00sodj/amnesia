@@ -14,8 +14,8 @@ python demo/demo_run.py      # the walkthrough, writes to .demo/
 python tools/mcp_smoke.py    # stdio transport + tool registration
 ```
 
-The project targets Python 3.10+ and keeps exactly one runtime dependency (`PyYAML`).
-Adding a second needs a justification in the pull request; "it made this line shorter" is
+The project targets Python 3.10–3.13 and keeps its runtime dependencies minimal (`PyYAML` and
+`mcp`). Adding another needs a justification in the pull request; "it made this line shorter" is
 not one.
 
 The ruff rule set in `pyproject.toml` was verified clean against this codebase before

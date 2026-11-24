@@ -4,15 +4,18 @@ Five minutes, six commands. If anything here does not do what this page says, th
 the page is short enough to actually be true, and every command and output below was captured
 from a real run.
 
-**Requires** Python 3.10+. PyYAML is the only runtime dependency.
+**Requires** Python 3.10–3.13. Install from PyPI under `amnesia-gov`:
+
+```bash
+pip install amnesia-gov
+```
+
+Or clone the repository if you also want to run step 6 (the full acceptance suite):
 
 ```bash
 git clone https://github.com/00sodj/amnesia.git && cd amnesia
-pip install -e ".[dev,server]"
+pip install -e ".[dev]"
 ```
-
-The `dev` extra is only there for step 6, which runs the checks. Drop it if you just want to use
-the thing: `pip install -e ".[server]"`.
 
 > `pip install amnesia` will not work — that name belongs to an unrelated package on PyPI.
 > [Why](README.md#install).

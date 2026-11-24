@@ -27,7 +27,7 @@ from .report import build_report, render_markdown
 from .store import MemoryStore, tokens
 from .validation import validate_principal, validate_recall, validate_write
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 __all__ = [
     "CANDIDATE_LIMIT",
